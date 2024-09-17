@@ -14,7 +14,6 @@ import {
   createMint,
   createTokenAccount,
   getPDAs,
-  MPL_TOKEN_METADATA_PROGRAM_ID,
 } from "./utils";
 
 describe("initialize", () => {
@@ -36,20 +35,16 @@ describe("initialize", () => {
       );
 
       // // params.grantTokenAmount = new anchor.BN(0);
-      const { vault, vaultTokenAccount, vaultAuthority, sharesKeyPair, metadataAccount } = await getPDAs({
+      const { vault, vaultTokenAccount, vaultAuthority} = await getPDAs({
         owner,
         programId: program.programId,
         mint,
       });
 
-      const sharesAccount = sharesKeyPair.publicKey;
       const tokenProgram = anchor.utils.token.TOKEN_PROGRAM_ID;
-      const tokenMetadataProgram = MPL_TOKEN_METADATA_PROGRAM_ID;
       const systemProgram = SystemProgram.programId;
 
-
-      // const initializeTransaction = await program.methods
-      const transactionSignature = await program.methods
+      const initializeTransaction = await program.methods
         .initializeVault(new anchor.BN(10))
         .accounts({
           vault,
@@ -58,30 +53,13 @@ describe("initialize", () => {
           ownerTokenAccount,
           vaultAuthority,
           vaultTokenAccount,
-          sharesAccount,
-          metadataAccount,
           tokenProgram,
-          tokenMetadataProgram,
           systemProgram,
         })
-        .signers([sharesKeyPair])
-        // .instruction();
         .rpc();
-        // .rpc(COMMITMENT);
 
-        // const transaction = new Transaction().add(initializeTransaction);
-        // transaction.feePayer = owner;
-        // console.log("transaction", transaction);
- 
-        // const transactionSignature = await connection.simulateTransaction(transaction);
 
-        // const logs = transactionSignature.value.logs;
-        // console.log("[Initialize] Transaction logs:");
-        // logs.forEach((log, index) => {
-        //     console.log(`Log ${index + 1}: ${log}`);
-        // });
-
-      // console.log(`[Initialize] ${initializeTransaction}`);
+      console.log(`[Initialize] ${initializeTransaction}`);
 
       // const tx = await connection.getParsedTransaction(
       //   initializeTransaction,

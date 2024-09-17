@@ -32,11 +32,7 @@ export interface PDAAccounts {
   vault: PublicKey;
   vaultTokenAccount: PublicKey;
   vaultAuthority: PublicKey;
-  sharesKeyPair: Keypair; // Add this line
-  metadataAccount: PublicKey;
 }
-
-export const MPL_TOKEN_METADATA_PROGRAM_ID = new PublicKey("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s");
 
 export const COMMITMENT: { commitment: Finality } = { commitment: "confirmed" };
 
@@ -150,17 +146,10 @@ export const getPDAs = async (params: {
     [Buffer.from("tokens"), vault.toBuffer()],
     params.programId
   );
-  const sharesKeyPair = new Keypair(); // Changed to new Keypair()
-  const [metadataAccount] = await PublicKey.findProgramAddress(
-    [Buffer.from("metadata"), MPL_TOKEN_METADATA_PROGRAM_ID.toBuffer(), sharesKeyPair.publicKey.toBuffer()],
-    MPL_TOKEN_METADATA_PROGRAM_ID,
-  );
 
   return {
     vault,
     vaultAuthority,
     vaultTokenAccount,
-    sharesKeyPair, // Return the full Keypair
-    metadataAccount
   };
 };
