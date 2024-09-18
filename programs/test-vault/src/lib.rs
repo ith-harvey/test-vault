@@ -31,7 +31,7 @@ pub mod test_vault {
             authority: ctx.accounts.owner.to_account_info(),
         });
 
-        // transfer(context, deposit_amount)?;
+        transfer(context, deposit_amount)?;
 
         let bumps = Bumps {
             vault: ctx.bumps.vault,
@@ -156,9 +156,9 @@ pub struct InitializeVault<'info> {
     #[account(mut)]
     owner: Signer<'info>,
     #[account(constraint = mint.is_initialized == true)]
-    mint: Account<'info, Mint>,
+    mint: Box<Account<'info, Mint>>,
     #[account(mut, token::mint=mint, token::authority=owner)]
-    owner_token_account: Account<'info, TokenAccount>,
+    owner_token_account: Box<Account<'info, TokenAccount>>,
 
     // PDAs
     #[account(
@@ -167,7 +167,7 @@ pub struct InitializeVault<'info> {
         space = Vault::LEN,
         seeds = [b"vault".as_ref(), owner.key().as_ref(), mint.key().as_ref()], bump
     )]
-    vault: Account<'info, Vault>,
+    vault: Box<Account<'info, Vault>>,
     #[account(
         seeds = [b"authority".as_ref(), vault.key().as_ref()], bump
     )]
@@ -179,7 +179,7 @@ pub struct InitializeVault<'info> {
         token::authority=vault_authority,
         seeds = [b"tokens".as_ref(), vault.key().as_ref()], bump
     )]
-    vault_token_account: Account<'info, TokenAccount>,
+    vault_token_account: Box<Account<'info, TokenAccount>>,
 
     // InitShares
     #[account(
@@ -190,7 +190,7 @@ pub struct InitializeVault<'info> {
         mint::freeze_authority = vault_authority,
         seeds = [b"shares".as_ref(), vault.key().as_ref()], bump
     )]
-    shares_account: Account<'info, Mint>,
+    shares_account: Box<Account<'info, Mint>>,
     /// CHECK: Validate address by deriving pda
     #[account(
         mut,
@@ -243,7 +243,7 @@ impl Vault {
         let option = 1;
         let initialized = 1;
         let pubkeys = 2 * 32;
-        let vault_bumps = 4 * 1;
+        let vault_bumps = 3 * 1;
         discriminator + amounts + option + initialized + pubkeys + vault_bumps
     };
 }
