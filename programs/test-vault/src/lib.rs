@@ -18,59 +18,59 @@ pub mod test_vault {
 
     pub fn initialize_vault(ctx: Context<InitializeVault>, deposit_amount: u64) -> Result<()> {
 
-        // if deposit_amount <= 0 {
-        //     return err!(ErrorCode::InvalidDepositAmount);
-        // }
+        if deposit_amount <= 0 {
+            return err!(ErrorCode::InvalidDepositAmount);
+        }
 
         msg!("depositing {} to vault", deposit_amount);
 
         // Transfer token from the vault owner to the vault token account
-        // let context = ctx.accounts.token_program_context( Transfer {
-        //     from: ctx.accounts.owner_token_account.to_account_info(),
-        //     to: ctx.accounts.vault_token_account.to_account_info(),
-        //     authority: ctx.accounts.owner.to_account_info(),
-        // });
+        let context = ctx.accounts.token_program_context( Transfer {
+            from: ctx.accounts.owner_token_account.to_account_info(),
+            to: ctx.accounts.vault_token_account.to_account_info(),
+            authority: ctx.accounts.owner.to_account_info(),
+        });
 
         // transfer(context, deposit_amount)?;
 
-        // let bumps = Bumps {
-        //     vault: ctx.bumps.vault,
-        //     vault_authority: ctx.bumps.vault_authority,
-        //     vault_token_account: ctx.bumps.vault_token_account,
-        //     metadata_account: ctx.bumps.metadata_account,
-        // };
+        let bumps = Bumps {
+            vault: ctx.bumps.vault,
+            vault_authority: ctx.bumps.vault_authority,
+            vault_token_account: ctx.bumps.vault_token_account,
+            // metadata_account: ctx.bumps.metadata_account,
+        };
 
         msg!("initializing shares");
 
-        let data = DataV2 {
-            name: "Shares".to_string(),
-            symbol: "SHRS".to_string(),
-            uri: "https://example.com/metadata".to_string(),
-            seller_fee_basis_points: 0,
-            creators: None,
-            collection: None,
-            uses: None,
-        };
+        // let data = DataV2 {
+        //     name: "Shares".to_string(),
+        //     symbol: "SHRS".to_string(),
+        //     uri: "https://example.com/metadata".to_string(),
+        //     seller_fee_basis_points: 0,
+        //     creators: None,
+        //     collection: None,
+        //     uses: None,
+        // };
 
-        let metadata_program_context = ctx.accounts.metadata_program_context(
-            CreateMetadataAccountsV3 {
-                metadata: ctx.accounts.metadata_account.to_account_info(),
-                mint: ctx.accounts.shares_account.to_account_info(),
-                mint_authority: ctx.accounts.owner.to_account_info(),
-                update_authority: ctx.accounts.owner.to_account_info(),
-                payer: ctx.accounts.owner.to_account_info(),
-                system_program: ctx.accounts.system_program.to_account_info(),
-                rent: ctx.accounts.rent.to_account_info(),
-            }
-        );
+        // let metadata_program_context = ctx.accounts.metadata_program_context(
+        //     CreateMetadataAccountsV3 {
+        //         metadata: ctx.accounts.metadata_account.to_account_info(),
+        //         mint: ctx.accounts.shares_account.to_account_info(),
+        //         mint_authority: ctx.accounts.owner.to_account_info(),
+        //         update_authority: ctx.accounts.owner.to_account_info(),
+        //         payer: ctx.accounts.owner.to_account_info(),
+        //         system_program: ctx.accounts.system_program.to_account_info(),
+        //         rent: ctx.accounts.rent.to_account_info(),
+        //     }
+        // );
 
-        create_metadata_accounts_v3(
-            metadata_program_context,
-            data,
-            false,
-            true,
-            None,
-        )?;
+        // create_metadata_accounts_v3(
+        //     metadata_program_context,
+        //     data,
+        //     false,
+        //     true,
+        //     None,
+        // )?;
 
         msg!("Token created successfully.");
     
@@ -167,7 +167,7 @@ pub struct InitializeVault<'info> {
         space = Vault::LEN,
         seeds = [b"vault".as_ref(), owner.key().as_ref(), mint.key().as_ref()], bump
     )]
-    vault: Box<Account<'info, Vault>>,
+    vault: Account<'info, Vault>,
     #[account(
         seeds = [b"authority".as_ref(), vault.key().as_ref()], bump
     )]
@@ -186,10 +186,11 @@ pub struct InitializeVault<'info> {
         init,
         payer = owner,
         mint::decimals = 9,
-        mint::authority = owner.key(),
-        mint::freeze_authority = owner.key(),
+        mint::authority = vault_authority,
+        mint::freeze_authority = vault_authority,
+        seeds = [b"shares".as_ref(), vault.key().as_ref()], bump
     )]
-    shares_account: Box<Account<'info, Mint>>,
+    shares_account: Account<'info, Mint>,
     /// CHECK: Validate address by deriving pda
     #[account(
         mut,
@@ -215,12 +216,12 @@ impl<'info> InitializeVault<'info> {
         CpiContext::new(self.token_program.to_account_info(), data)
     }
 
-    pub fn metadata_program_context<T: ToAccountMetas + ToAccountInfos<'info>>(
-        &self,
-        data: T,
-    ) -> CpiContext<'_, '_, '_, 'info, T> {
-        CpiContext::new(self.token_metadata_program.to_account_info(), data)
-    }
+    // pub fn metadata_program_context<T: ToAccountMetas + ToAccountInfos<'info>>(
+    //     &self,
+    //     data: T,
+    // ) -> CpiContext<'_, '_, '_, 'info, T> {
+    //     CpiContext::new(self.token_metadata_program.to_account_info(), data)
+    // }
 }
 
 #[account]
@@ -343,60 +344,6 @@ impl<'info> Withdraw<'info> {
         CpiContext::new(self.token_program.to_account_info(), data)
     }
 }
-
-// #[derive(Accounts)]
-// struct InitShares<'info> {
-//     // External accounts
-//     #[account(mut)]
-//     pub payer: Signer<'info>, // should be depositor
-//     #[account(constraint = mint.is_initialized == true)]
-//     mint: Account<'info, Mint>,
-
-//     // PDAs
-//     #[account(
-//         init,
-//         payer = payer,
-//         mint::decimals = 9,
-//         mint::authority = vault_authority, // should be vault program
-//         mint::freeze_authority = vault_authority, // should be vault program
-//     )]
-//     pub shares_account: Account<'info, Mint>,
-//     /// CHECK: Validate address by deriving pda
-//     #[account(
-//         mut,
-//         seeds = [b"metadata".as_ref(), token_metadata_program.key().as_ref(), shares_account.key().as_ref()],
-//         bump,
-//         seeds::program = token_metadata_program.key()
-//     )]
-//     pub metadata_account: UncheckedAccount<'info>,
-//     #[account(
-//         mut,
-//         seeds = [b"vault".as_ref(), payer.key().as_ref(), mint.key().as_ref()],
-//         bump = vault.bumps.vault,
-//         constraint = vault.initialized == true,
-//     )]
-//     vault: Account<'info, Vault>,
-//     #[account(
-//         seeds = [b"authority", vault.key().as_ref()],
-//         bump = vault.bumps.vault_authority,
-//     )]
-//     pub vault_authority: SystemAccount<'info>,
-
-//     // Programs
-//     pub system_program: Program<'info, System>,
-//     pub token_program: Program<'info, Token>,
-//     pub token_metadata_program: Program<'info, Metadata>,
-//     pub rent: Sysvar<'info, Rent>,
-// }
-
-// impl<'info> InitShares<'info> {
-//     fn metadata_program_context<T: ToAccountMetas + ToAccountInfos<'info>>(
-//         &self,
-//         data: T,
-//     ) -> CpiContext<'_, '_, '_, 'info, T> {
-//         CpiContext::new(self.token_metadata_program.to_account_info(), data)
-//     }
-// }
 
 #[error_code]
 pub enum ErrorCode {

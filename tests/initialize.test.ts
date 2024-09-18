@@ -35,20 +35,16 @@ describe("initialize", () => {
         100_000 * LAMPORTS_PER_SOL
       );
 
-      // // params.grantTokenAmount = new anchor.BN(0);
-      const { vault, vaultTokenAccount, vaultAuthority, sharesKeyPair, metadataAccount } = await getPDAs({
+      const { vault, vaultTokenAccount, vaultAuthority, sharesAccount, metadataAccount } = await getPDAs({
         owner,
         programId: program.programId,
         mint,
       });
 
-      const sharesAccount = sharesKeyPair.publicKey;
       const tokenProgram = anchor.utils.token.TOKEN_PROGRAM_ID;
       const tokenMetadataProgram = MPL_TOKEN_METADATA_PROGRAM_ID;
       const systemProgram = SystemProgram.programId;
 
-
-      // const initializeTransaction = await program.methods
       const transactionSignature = await program.methods
         .initializeVault(new anchor.BN(10))
         .accounts({
@@ -64,10 +60,8 @@ describe("initialize", () => {
           tokenMetadataProgram,
           systemProgram,
         })
-        .signers([sharesKeyPair])
-        // .instruction();
+        // .signers([sharesKeyPair])
         .rpc();
-        // .rpc(COMMITMENT);
 
         // const transaction = new Transaction().add(initializeTransaction);
         // transaction.feePayer = owner;

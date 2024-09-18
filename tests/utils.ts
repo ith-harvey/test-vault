@@ -32,7 +32,7 @@ export interface PDAAccounts {
   vault: PublicKey;
   vaultTokenAccount: PublicKey;
   vaultAuthority: PublicKey;
-  sharesKeyPair: Keypair; // Add this line
+  sharesAccount: PublicKey; // Add this line
   metadataAccount: PublicKey;
 }
 
@@ -150,9 +150,12 @@ export const getPDAs = async (params: {
     [Buffer.from("tokens"), vault.toBuffer()],
     params.programId
   );
-  const sharesKeyPair = new Keypair(); // Changed to new Keypair()
+  const [sharesAccount] = await PublicKey.findProgramAddress(
+    [Buffer.from("shares"), vault.toBuffer()],
+    params.programId
+  );
   const [metadataAccount] = await PublicKey.findProgramAddress(
-    [Buffer.from("metadata"), MPL_TOKEN_METADATA_PROGRAM_ID.toBuffer(), sharesKeyPair.publicKey.toBuffer()],
+    [Buffer.from("metadata"), MPL_TOKEN_METADATA_PROGRAM_ID.toBuffer(), sharesAccount.toBuffer()],
     MPL_TOKEN_METADATA_PROGRAM_ID,
   );
 
@@ -160,7 +163,7 @@ export const getPDAs = async (params: {
     vault,
     vaultAuthority,
     vaultTokenAccount,
-    sharesKeyPair, // Return the full Keypair
+    sharesAccount, // Return the full Keypair
     metadataAccount
   };
 };
