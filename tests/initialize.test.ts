@@ -15,7 +15,6 @@ import {
   createMint,
   createTokenAccount,
   getPDAs,
-  MPL_TOKEN_METADATA_PROGRAM_ID,
 } from "./utils";
 
 describe("initialize", () => {

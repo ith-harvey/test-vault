@@ -39,8 +39,6 @@ export interface PDAAccounts {
   sharesMint: PublicKey; // Add this line
 }
 
-export const MPL_TOKEN_METADATA_PROGRAM_ID = new PublicKey("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s");
-
 export const COMMITMENT: { commitment: Finality } = { commitment: "confirmed" };
 
 export const createTokenAccount = async (
