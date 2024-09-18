@@ -14,7 +14,6 @@ pub mod test_vault {
     use super::*;
 
     pub fn initialize_vault(ctx: Context<InitializeVault>) -> Result<()> {
-
         let bumps = Bumps {
             vault: ctx.bumps.vault,
             vault_authority: ctx.bumps.vault_authority,
@@ -32,34 +31,59 @@ pub mod test_vault {
         });
 
         msg!("Vault initialized successfully.");
-
         Ok(())
     }
 
     pub fn deposit(ctx: Context<Deposit>, deposit_amount: u64) -> Result<()> {
-        if deposit_amount <= 0 {
+        if deposit_amount == 0 {
             return err!(ErrorCode::InvalidDepositAmount);
         }
         
-        msg!("depositing {} to vault", deposit_amount);
+        msg!("Depositing {} to vault", deposit_amount);
 
-        // Transfer token from the vault owner to the vault token account
-        let context = ctx.accounts.token_program_context( Transfer {
+        transfer_tokens_to_vault(&ctx, deposit_amount)?;
+        mint_shares_to_owner(&ctx, deposit_amount)?;
+        update_vault_deposit(&mut ctx.accounts.vault, deposit_amount, true)?;
+
+        Ok(())
+    }
+
+    pub fn withdraw(ctx: Context<Withdraw>, withdraw_amount: u64) -> Result<()> {
+        let vault_token_balance = ctx.accounts.vault_token_account.amount;
+        if withdraw_amount == 0 || withdraw_amount > vault_token_balance {
+            return err!(ErrorCode::InvalidWithdrawAmount);
+        }
+
+        msg!("Withdrawing {} from vault", withdraw_amount);
+
+        transfer_tokens_from_vault(&ctx, withdraw_amount)?;
+        burn_shares(&ctx, withdraw_amount)?;
+        update_vault_deposit(&mut ctx.accounts.vault, withdraw_amount, false)?;
+
+        Ok(())
+    }
+}
+
+// Helper functions
+fn transfer_tokens_to_vault<'info>(ctx: &Context<Deposit<'info>>, amount: u64) -> Result<()> {
+    transfer(
+        ctx.accounts.token_program_context(Transfer {
             from: ctx.accounts.owner_token_account.to_account_info(),
             to: ctx.accounts.vault_token_account.to_account_info(),
             authority: ctx.accounts.owner.to_account_info(),
-        });
+        }),
+        amount,
+    )
+}
 
-        transfer(context, deposit_amount)?;
-
-        // Mint shares to the depositor's account using Anchor's CPI
-        mint_to(
-            CpiContext::new_with_signer(
-                ctx.accounts.token_program.to_account_info(),
-                MintTo {
-                    mint: ctx.accounts.shares_mint.to_account_info(),
-                    to: ctx.accounts.owner_shares_account.to_account_info(),
-                    authority: ctx.accounts.vault_authority.to_account_info(),
+fn mint_shares_to_owner<'info>(ctx: &Context<Deposit<'info>>, amount: u64) -> Result<()> {
+    mint_to(
+        CpiContext::new_with_signer(
+            ctx.accounts.token_program.to_account_info(),
+            MintTo {
+                mint: ctx.accounts.shares_mint.to_account_info(),
+                to: ctx.accounts.owner_shares_account.to_account_info(),
+                authority: ctx.accounts.vault_authority.to_account_info(),
             },
             &[&[
                 b"authority",
@@ -67,40 +91,14 @@ pub mod test_vault {
                 &[ctx.accounts.vault.bumps.vault_authority],
             ]],
         ),
-            deposit_amount,
-        )?;
+        amount,
+    )
+}
 
-        let vault_data = &mut ctx.accounts.vault;
-        let updated_deposited_amount = vault_data
-            .deposit
-            .checked_add(deposit_amount)
-            .unwrap();
-
-        vault_data.deposit = updated_deposited_amount;
-
-        Ok(())
-    }
-
-    pub fn withdraw(ctx: Context<Withdraw>, withdraw_amount: u64) -> Result<()> {
-        let vault_token_balance = &ctx.accounts.vault_token_account.amount;
-        if withdraw_amount <= 0 || withdraw_amount > *vault_token_balance {
-            return err!(ErrorCode::InvalidWithdrawAmount);
-        }
-
-        msg!("withdrawing {} from vault", withdraw_amount);
-
-        // // Transfer token from the vault token account to the owner token account
-        // let context = ctx.accounts.token_program_context( Transfer {
-        //     from: ctx.accounts.vault_token_account.to_account_info(),
-        //     to: ctx.accounts.owner_token_account.to_account_info(),
-        //     authority: ctx.accounts.vault_authority.to_account_info(),
-        // });
-
-        // transfer(context, withdraw_amount)?;
-        // Transfer tokens from the vault token account to the owner token account
-        transfer(
-            CpiContext::new_with_signer(
-                ctx.accounts.token_program.to_account_info(),
+fn transfer_tokens_from_vault<'info>(ctx: &Context<Withdraw<'info>>, amount: u64) -> Result<()> {
+    transfer(
+        CpiContext::new_with_signer(
+            ctx.accounts.token_program.to_account_info(),
             Transfer {
                 from: ctx.accounts.vault_token_account.to_account_info(),
                 to: ctx.accounts.owner_token_account.to_account_info(),
@@ -112,37 +110,31 @@ pub mod test_vault {
                 &[ctx.accounts.vault.bumps.vault_authority],
             ]],
         ),
-            withdraw_amount,
-        )?;
+        amount,
+    )
+}
 
-        // Burn equivalent amount of shares
-        burn(
-        CpiContext::new_with_signer(
+fn burn_shares<'info>(ctx: &Context<Withdraw<'info>>, amount: u64) -> Result<()> {
+    burn(
+        CpiContext::new(
             ctx.accounts.token_program.to_account_info(),
             Burn {
                 mint: ctx.accounts.shares_mint.to_account_info(),
                 from: ctx.accounts.owner_shares_account.to_account_info(),
                 authority: ctx.accounts.owner.to_account_info(),
             },
-            &[&[
-                b"authority",
-                ctx.accounts.vault.to_account_info().key.as_ref(),
-                &[ctx.accounts.vault.bumps.vault_authority],
-            ]],
         ),
-            withdraw_amount,
-        )?;
+        amount,
+    )
+}
 
-        let vault_data = &mut ctx.accounts.vault;
-        let updated_deposit_amount = vault_data
-            .deposit
-            .checked_sub(withdraw_amount)
-            .unwrap();
-
-        vault_data.deposit = updated_deposit_amount;
-
-        Ok(())
-    }
+fn update_vault_deposit(vault: &mut Account<Vault>, amount: u64, is_deposit: bool) -> Result<()> {
+    vault.deposit = if is_deposit {
+        vault.deposit.checked_add(amount)
+    } else {
+        vault.deposit.checked_sub(amount)
+    }.ok_or(ErrorCode::ArithmeticError)?;
+    Ok(())
 }
 
 #[derive(Accounts)]
@@ -345,4 +337,6 @@ pub enum ErrorCode {
     InvalidDepositAmount,
     #[msg("Withdraw amount must be")]
     InvalidWithdrawAmount,
+    #[msg("Arithmetic error")]
+    ArithmeticError,
 }
