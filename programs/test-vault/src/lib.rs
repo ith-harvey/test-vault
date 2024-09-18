@@ -164,7 +164,7 @@ pub struct InitializeVault<'info> {
     #[account(
         init,
         payer = owner,
-        space = Vault::LEN,
+        space = 8 + std::mem::size_of::<Vault>(),
         seeds = [b"vault".as_ref(), owner.key().as_ref(), mint.key().as_ref()], bump
     )]
     vault: Box<Account<'info, Vault>>,
@@ -236,17 +236,17 @@ pub struct Vault {
     pub bumps: Bumps,
 }
 
-impl Vault {
-    pub const LEN: usize = {
-        let discriminator = 8;
-        let amounts = 3 * 8;
-        let option = 1;
-        let initialized = 1;
-        let pubkeys = 2 * 32;
-        let vault_bumps = 3 * 1;
-        discriminator + amounts + option + initialized + pubkeys + vault_bumps
-    };
-}
+// impl Vault {
+//     pub const LEN: usize = {
+//         let discriminator = 8;
+//         let amounts = 3 * 8;
+//         let option = 1;
+//         let initialized = 1;
+//         let pubkeys = 2 * 32;
+//         let vault_bumps = 3 * 1;
+//         discriminator + amounts + option + initialized + pubkeys + vault_bumps
+//     };
+// }
 
 #[derive(AnchorDeserialize, AnchorSerialize, Debug, Clone)]
 pub struct Bumps {
