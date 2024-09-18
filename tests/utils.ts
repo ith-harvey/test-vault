@@ -8,10 +8,14 @@ import {
 } from "@solana/web3.js";
 import {
   ASSOCIATED_TOKEN_PROGRAM_ID,
-  MintLayout,
-  Token,
   TOKEN_PROGRAM_ID,
+  getAssociatedTokenAddress,
+  createAssociatedTokenAccountInstruction,
+  createMint as createSPLMint,
+  getMinimumBalanceForRentExemptMint,
+  createMintToInstruction,
 } from "@solana/spl-token";
+
 
 export interface Params {
   cliffSeconds: anchor.BN;
@@ -32,8 +36,7 @@ export interface PDAAccounts {
   vault: PublicKey;
   vaultTokenAccount: PublicKey;
   vaultAuthority: PublicKey;
-  sharesAccount: PublicKey; // Add this line
-  metadataAccount: PublicKey;
+  sharesMint: PublicKey; // Add this line
 }
 
 export const MPL_TOKEN_METADATA_PROGRAM_ID = new PublicKey("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s");
@@ -46,11 +49,12 @@ export const createTokenAccount = async (
   mint: anchor.web3.PublicKey,
   fundingAmount?: number
 ): Promise<anchor.web3.PublicKey> => {
-  const userAssociatedTokenAccount = await Token.getAssociatedTokenAddress(
-    ASSOCIATED_TOKEN_PROGRAM_ID,
-    TOKEN_PROGRAM_ID,
+  const userAssociatedTokenAccount = await getAssociatedTokenAddress(
     mint,
-    user
+    user,
+    false,
+    TOKEN_PROGRAM_ID,
+    ASSOCIATED_TOKEN_PROGRAM_ID
   );
 
   // Fund user with some SOL
@@ -65,24 +69,24 @@ export const createTokenAccount = async (
     );
   }
   txFund.add(
-    Token.createAssociatedTokenAccountInstruction(
-      ASSOCIATED_TOKEN_PROGRAM_ID,
-      TOKEN_PROGRAM_ID,
-      mint,
+    createAssociatedTokenAccountInstruction(
+      provider.wallet.publicKey,
       userAssociatedTokenAccount,
       user,
-      provider.wallet.publicKey
+      mint,
+      TOKEN_PROGRAM_ID,
+      ASSOCIATED_TOKEN_PROGRAM_ID
     )
   );
   if (fundingAmount !== undefined) {
     txFund.add(
-      Token.createMintToInstruction(
-        TOKEN_PROGRAM_ID,
+      createMintToInstruction(
         mint,
         userAssociatedTokenAccount,
         provider.wallet.publicKey,
+        fundingAmount,
         [],
-        fundingAmount
+        TOKEN_PROGRAM_ID
       )
     );
   }
@@ -98,39 +102,25 @@ export const createMint = async (
   provider: anchor.AnchorProvider
 ): Promise<anchor.web3.PublicKey> => {
   const wallet = provider.wallet;
-  const tokenMint = new anchor.web3.Keypair();
-  const lamportsForMint =
-    await provider.connection.getMinimumBalanceForRentExemption(
-      MintLayout.span
-    );
-  let tx = new anchor.web3.Transaction();
+  const connection = provider.connection;
 
-  // Allocate mint
-  tx.add(
-    anchor.web3.SystemProgram.createAccount({
-      programId: TOKEN_PROGRAM_ID,
-      space: MintLayout.span,
-      fromPubkey: wallet.publicKey,
-      newAccountPubkey: tokenMint.publicKey,
-      lamports: lamportsForMint,
-    })
-  );
-  // Allocate wallet account
-  tx.add(
-    Token.createInitMintInstruction(
-      TOKEN_PROGRAM_ID,
-      tokenMint.publicKey,
-      9,
-      wallet.publicKey,
-      wallet.publicKey
-    )
-  );
-  const signature = await provider.sendAndConfirm(tx, [tokenMint], COMMITMENT);
+  // Get the minimum lamports required for the mint
+  const lamportsForMint = await getMinimumBalanceForRentExemptMint(connection);
 
-  console.log(
-    `[${tokenMint.publicKey}] Created new mint account at ${signature}`
+  // Create the mint account
+  const mint = await createSPLMint(
+    connection,
+    wallet.payer,
+    wallet.publicKey,
+    wallet.publicKey,
+    9,
+    undefined,
+    { commitment: COMMITMENT.commitment },
+    TOKEN_PROGRAM_ID
   );
-  return tokenMint.publicKey;
+
+  console.log(`[${mint.toBase58()}] Created new mint account`);
+  return mint;
 };
 
 export const getPDAs = async (params: {
@@ -150,20 +140,14 @@ export const getPDAs = async (params: {
     [Buffer.from("tokens"), vault.toBuffer()],
     params.programId
   );
-  const [sharesAccount] = await PublicKey.findProgramAddress(
-    [Buffer.from("shares"), vault.toBuffer()],
+  const [sharesMint] = await PublicKey.findProgramAddress(
+    [Buffer.from("shares_mint"), vault.toBuffer()],
     params.programId
   );
-  const [metadataAccount] = await PublicKey.findProgramAddress(
-    [Buffer.from("metadata"), MPL_TOKEN_METADATA_PROGRAM_ID.toBuffer(), sharesAccount.toBuffer()],
-    MPL_TOKEN_METADATA_PROGRAM_ID,
-  );
-
-  return {
+return {
     vault,
     vaultAuthority,
     vaultTokenAccount,
-    sharesAccount, // Return the full Keypair
-    metadataAccount
+    sharesMint,
   };
 };
