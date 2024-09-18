@@ -147,7 +147,7 @@ describe("initialize", () => {
 
       // Check data
       const vaultData = await program.account.vault.fetch(vault);
-      expect(vaultData.depositedAmount.toNumber()).to.eq(10);
+      expect(vaultData.deposit.toNumber()).to.eq(10);
 
       // Check token balances
       const vaultTokenAccountInfo = await spl.getAccount(connection, vaultTokenAccount);
@@ -160,6 +160,94 @@ describe("initialize", () => {
     } catch (error) {
       console.error(error);
       throw new Error(`Failed to deposit into vault: ${error.message}`);
+    }
+  });
+
+  it("Withdraws all 10 tokens from the vault", async () => {
+    try {
+      const owner = provider.wallet.publicKey;
+      const mint = await createMint(provider);
+      const ownerTokenAccount = await createTokenAccount(
+        provider,
+        provider.wallet.publicKey,
+        mint,
+        100_000 * LAMPORTS_PER_SOL
+      );
+
+      const { vault, vaultTokenAccount, vaultAuthority, sharesMint } = await getPDAs({
+        owner,
+        programId: program.programId,
+        mint,
+      });
+
+      // Initialize the vault
+      await program.methods
+        .initializeVault()
+        .accounts({
+          vault,
+          owner,
+          mint,
+          ownerTokenAccount,
+          vaultAuthority,
+          vaultTokenAccount,
+          sharesMint,
+          tokenProgram,
+          systemProgram,
+        })
+        .rpc();
+
+      const ownerSharesAccount = getAssociatedTokenAddressSync(sharesMint, owner);
+
+      // Deposit 10 tokens
+      await program.methods
+        .deposit(new anchor.BN(10))
+        .accounts({
+          owner,
+          ownerTokenAccount,
+          mint,
+          vault,
+          vaultAuthority,
+          vaultTokenAccount,
+          sharesMint,
+          ownerSharesAccount,
+          tokenProgram,
+          systemProgram,
+        })
+        .rpc();
+
+      // Withdraw all 10 tokens
+      const withdrawSignature = await program.methods
+        .withdraw(new anchor.BN(10))
+        .accounts({
+          owner,
+          ownerTokenAccount,
+          mint,
+          vault,
+          vaultAuthority,
+          vaultTokenAccount,
+          sharesMint,
+          ownerSharesAccount,
+          tokenProgram,
+        })
+        .rpc();
+
+      console.log(`[Withdraw] ${withdrawSignature}`);
+
+      // Check withdraw data
+      const vaultData = await program.account.vault.fetch(vault);
+      expect(vaultData.deposit.toNumber()).to.eq(0);
+
+      // Check token balances after withdrawal
+      const vaultTokenAccountInfo = await spl.getAccount(connection, vaultTokenAccount);
+      expect(vaultTokenAccountInfo.amount).to.eq(BigInt(0), "Vault token account should be empty after withdrawal");
+
+      // Check owner's shares balance after withdrawal
+      const ownerSharesAccountInfo = await spl.getAccount(connection, ownerSharesAccount);
+      expect(ownerSharesAccountInfo.amount).to.eq(BigInt(0), "Owner's shares balance should be zero after withdrawal");
+
+    } catch (error) {
+      console.error(error);
+      throw new Error(`Failed to withdraw from vault: ${error.message}`);
     }
   });
 });
