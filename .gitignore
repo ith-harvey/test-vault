@@ -1,4 +1,5 @@
-
+Anchor.toml
+yarn.lock
 .anchor
 .DS_Store
 target
