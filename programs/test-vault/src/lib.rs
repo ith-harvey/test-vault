@@ -23,15 +23,36 @@ pub mod test_vault {
         }
 
         msg!("depositing {} to vault", deposit_amount);
+        // msg!("vault token account {:?}", ctx.accounts.vault_token_account);
+        // msg!("mint token account {:?}", ctx.accounts.mint);
+        // msg!("vault {:?}", ctx.accounts.vault);
+        // msg!("vault authority {:?}", ctx.accounts.vault_authority);
+        // msg!("shares account {:?}", ctx.accounts.shares_account);
+        // msg!("metadata account {:?}", ctx.accounts.metadata_account);
+        // msg!("token program {:?}", ctx.accounts.token_program.to_account_info());
+        // msg!("system program {:?}", ctx.accounts.system_program);
+        // msg!("token metadata program {:?}", ctx.accounts.token_metadata_program.to_account_info());
+        // msg!("rent {:?}", ctx.accounts.rent);
+        msg!("owner token account {:?}", ctx.accounts.owner_token_account);
 
-        // Transfer token from the vault owner to the vault token account
-        let context = ctx.accounts.token_program_context( Transfer {
-            from: ctx.accounts.owner_token_account.to_account_info(),
-            to: ctx.accounts.vault_token_account.to_account_info(),
-            authority: ctx.accounts.owner.to_account_info(),
-        });
+        // // Transfer token from the vault owner to the vault token account
+        // let context = ctx.accounts.token_program_context( 
+        //     Transfer {
+        //     from: ctx.accounts.owner_token_account.to_account_info(),
+        //     to: ctx.accounts.vault_token_account.to_account_info(),
+        //     authority: ctx.accounts.owner.to_account_info(),
+        // });
 
-        transfer(context, deposit_amount)?;
+        // let context = CpiContext::new(
+        //     ctx.accounts.token_program.to_account_info(), 
+        //     Transfer {
+        //         // from: ctx.accounts.owner_token_account.to_account_info(),
+        //         from: ctx.accounts.owner.to_account_info(),
+        //         to: ctx.accounts.vault_token_account.to_account_info(),
+        //         authority: ctx.accounts.owner.to_account_info(),
+        // });
+
+        // transfer(context, deposit_amount)?;
 
         let bumps = Bumps {
             vault: ctx.bumps.vault,
@@ -155,8 +176,10 @@ pub struct InitializeVault<'info> {
     // External accounts
     #[account(mut)]
     owner: Signer<'info>,
+
     #[account(constraint = mint.is_initialized == true)]
     mint: Box<Account<'info, Mint>>,
+
     #[account(mut, token::mint=mint, token::authority=owner)]
     owner_token_account: Box<Account<'info, TokenAccount>>,
 

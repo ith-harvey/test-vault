@@ -35,6 +35,10 @@ describe("initialize", () => {
         100_000 * LAMPORTS_PER_SOL
       );
 
+
+      // how do I see if the ownerTokenAccount is initialized?
+      const info = await provider.connection.getAccountInfo(ownerTokenAccount);
+
       const { vault, vaultTokenAccount, vaultAuthority, sharesAccount, metadataAccount } = await getPDAs({
         owner,
         programId: program.programId,
