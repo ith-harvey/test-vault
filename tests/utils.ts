@@ -5,6 +5,7 @@ import {
   Connection,
   LAMPORTS_PER_SOL,
   Finality,
+  TransactionSignature
 } from "@solana/web3.js";
 import {
   ASSOCIATED_TOKEN_PROGRAM_ID,
@@ -15,7 +16,6 @@ import {
   getMinimumBalanceForRentExemptMint,
   createMintToInstruction,
 } from "@solana/spl-token";
-
 
 export interface Params {
   cliffSeconds: anchor.BN;
@@ -102,9 +102,6 @@ export const createMint = async (
   const wallet = provider.wallet;
   const connection = provider.connection;
 
-  // Get the minimum lamports required for the mint
-  const lamportsForMint = await getMinimumBalanceForRentExemptMint(connection);
-
   // Create the mint account
   const mint = await createSPLMint(
     connection,
@@ -142,7 +139,7 @@ export const getPDAs = async (params: {
     [Buffer.from("shares_mint"), vault.toBuffer()],
     params.programId
   );
-return {
+  return {
     vault,
     vaultAuthority,
     vaultTokenAccount,

@@ -36,22 +36,27 @@ describe("initialize", () => {
   }
 
   async function initializeVault() {
-    const tx = await program.methods
-      .initializeVault()
-      .accounts({
-        vault,
-        owner,
-        mint,
-        ownerTokenAccount,
-        vaultAuthority,
-        vaultTokenAccount,
-        sharesMint,
-        tokenProgram,
-        systemProgram,
-      })
-      .rpc();
-    console.log(`[Initialize] ${tx}`);
-    return tx;
+    try {
+      const tx = await program.methods
+        .initializeVault()
+        .accounts({
+          vault,
+          owner,
+          mint,
+          ownerTokenAccount,
+          vaultAuthority,
+          vaultTokenAccount,
+          sharesMint,
+          tokenProgram,
+          systemProgram,
+        })
+        .rpc();
+      console.log(`[Initialize] ${tx}`);
+      return tx;
+    } catch (error) {
+      console.error("Error initializing vault:", error);
+      throw error;
+    }
   }
 
   beforeEach(setup);
@@ -72,31 +77,36 @@ describe("initialize", () => {
     await initializeVault();
     const ownerSharesAccount = getAssociatedTokenAddressSync(sharesMint, owner);
 
-    const tx = await program.methods
-      .deposit(new anchor.BN(10))
-      .accounts({
-        owner,
-        ownerTokenAccount,
-        mint,
-        vault,
-        vaultAuthority,
-        vaultTokenAccount,
-        sharesMint,
-        ownerSharesAccount,
-        tokenProgram,
-        systemProgram,
-      })
-      .rpc(COMMITMENT);
-    console.log(`[Deposit] ${tx}`);
+    try {
+      const tx = await program.methods
+        .deposit(new anchor.BN(10))
+        .accounts({
+          owner,
+          ownerTokenAccount,
+          mint,
+          vault,
+          vaultAuthority,
+          vaultTokenAccount,
+          sharesMint,
+          ownerSharesAccount,
+          tokenProgram,
+          systemProgram,
+        })
+        .rpc(COMMITMENT);
+      console.log(`[Deposit] ${tx}`);
 
-    const vaultData = await program.account.vault.fetch(vault);
-    expect(vaultData.deposit.toNumber()).to.eq(10);
+      const vaultData = await program.account.vault.fetch(vault);
+      expect(vaultData.deposit.toNumber()).to.eq(10);
 
-    const vaultTokenAccountInfo = await spl.getAccount(connection, vaultTokenAccount);
-    expect(vaultTokenAccountInfo.amount).to.eq(BigInt(10));
+      const vaultTokenAccountInfo = await spl.getAccount(connection, vaultTokenAccount);
+      expect(vaultTokenAccountInfo.amount).to.eq(BigInt(10));
 
-    const ownerSharesAccountInfo = await spl.getAccount(connection, ownerSharesAccount);
-    expect(ownerSharesAccountInfo.amount).to.eq(BigInt(10), "Owner's shares balance should match the deposit amount");
+      const ownerSharesAccountInfo = await spl.getAccount(connection, ownerSharesAccount);
+      expect(ownerSharesAccountInfo.amount).to.eq(BigInt(10), "Owner's shares balance should match the deposit amount");
+    } catch (error) {
+      console.error("Error depositing tokens:", error);
+      throw error;
+    }
   });
 
   it("Withdraws all 10 tokens from the vault", async () => {
@@ -121,29 +131,34 @@ describe("initialize", () => {
       .rpc(COMMITMENT);
 
     // Withdraw all 10 tokens
-    const tx = await program.methods
-      .withdraw(new anchor.BN(10))
-      .accounts({
-        owner,
-        ownerTokenAccount,
-        mint,
-        vault,
-        vaultAuthority,
-        vaultTokenAccount,
-        sharesMint,
-        ownerSharesAccount,
-        tokenProgram,
-      })
-      .rpc(COMMITMENT);
-    console.log(`[Withdraw] ${tx}`);
+    try {
+      const tx = await program.methods
+        .withdraw(new anchor.BN(10))
+        .accounts({
+          owner,
+          ownerTokenAccount,
+          mint,
+          vault,
+          vaultAuthority,
+          vaultTokenAccount,
+          sharesMint,
+          ownerSharesAccount,
+          tokenProgram,
+        })
+        .rpc(COMMITMENT);
+      console.log(`[Withdraw] ${tx}`);
 
-    const vaultData = await program.account.vault.fetch(vault);
-    expect(vaultData.deposit.toNumber()).to.eq(0);
+      const vaultData = await program.account.vault.fetch(vault);
+      expect(vaultData.deposit.toNumber()).to.eq(0);
 
-    const vaultTokenAccountInfo = await spl.getAccount(connection, vaultTokenAccount);
-    expect(vaultTokenAccountInfo.amount).to.eq(BigInt(0), "Vault token account should be empty after withdrawal");
+      const vaultTokenAccountInfo = await spl.getAccount(connection, vaultTokenAccount);
+      expect(vaultTokenAccountInfo.amount).to.eq(BigInt(0), "Vault token account should be empty after withdrawal");
 
-    const ownerSharesAccountInfo = await spl.getAccount(connection, ownerSharesAccount);
-    expect(ownerSharesAccountInfo.amount).to.eq(BigInt(0), "Owner's shares balance should be zero after withdrawal");
+      const ownerSharesAccountInfo = await spl.getAccount(connection, ownerSharesAccount);
+      expect(ownerSharesAccountInfo.amount).to.eq(BigInt(0), "Owner's shares balance should be zero after withdrawal");
+    } catch (error) {
+      console.error("Error withdrawing tokens:", error);
+      throw error;
+    }
   });
 });
