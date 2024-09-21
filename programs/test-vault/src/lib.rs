@@ -7,7 +7,7 @@ use anchor_spl::{
     },
 };
 
-declare_id!("FuZswV8nqxeRQikhwdEtdu1SkrMSW53UwggHkuMrqsxa");
+declare_id!("3TTY6RRLxtdgxD2NKBWiZpeoDaJcZ4WxsW2fxdfim9ko");
 
 #[program]
 pub mod test_vault {
@@ -42,7 +42,11 @@ pub mod test_vault {
         msg!("Depositing {} to vault", deposit_amount);
 
         transfer_tokens_to_vault(&ctx, deposit_amount)?;
-        mint_shares_to_owner(&ctx, deposit_amount)?;
+
+        let shares = deposit_preview(&ctx, deposit_amount)?;
+        msg!("Minting {} shares", shares);
+        mint_shares(&ctx, shares)?;
+
         update_vault_deposit(&mut ctx.accounts.vault, deposit_amount, true)?;
 
         Ok(())
@@ -57,12 +61,46 @@ pub mod test_vault {
         msg!("Withdrawing {} from vault", withdraw_amount);
 
         transfer_tokens_from_vault(&ctx, withdraw_amount)?;
-        burn_shares(&ctx, withdraw_amount)?;
+
+        let shares = withdraw_preview(&ctx, withdraw_amount)?;
+        msg!("Burning {} shares", shares);
+        burn_shares(&ctx, shares)?;
+
         update_vault_deposit(&mut ctx.accounts.vault, withdraw_amount, false)?;
 
         Ok(())
     }
 }
+
+fn convert_to_shares(total_shares: u64, total_assets: u64, amount: u64) -> Result<u64> {
+
+    // If total_assets is 0, it means that the vault is empty and the amount is the same as the shares
+    if total_assets == 0 || total_shares == 0 {
+        return Ok(amount);
+    }
+
+    msg!("total_shares: {}", total_shares);
+    msg!("total_assets: {}", total_assets);
+    msg!("amount: {}", amount);
+
+    amount
+        .checked_mul(total_shares)
+        .and_then(|result| result.checked_div(total_assets))
+        .ok_or(ErrorCode::ArithmeticError.into())
+}
+
+fn withdraw_preview<'info>(ctx: &Context<Withdraw<'info>>, amount: u64) -> Result<u64> {
+    let total_shares = ctx.accounts.shares_mint.supply;
+    let total_assets = ctx.accounts.vault_token_account.amount;
+    convert_to_shares(total_shares, total_assets, amount)
+}
+
+fn deposit_preview<'info>(ctx: &Context<Deposit<'info>>, amount: u64) -> Result<u64> {
+    let total_shares = ctx.accounts.shares_mint.supply;
+    let total_assets = ctx.accounts.vault_token_account.amount;
+    convert_to_shares(total_shares, total_assets, amount)
+}
+
 
 // Helper functions
 fn transfer_tokens_to_vault<'info>(ctx: &Context<Deposit<'info>>, amount: u64) -> Result<()> {
@@ -76,7 +114,7 @@ fn transfer_tokens_to_vault<'info>(ctx: &Context<Deposit<'info>>, amount: u64) -
     )
 }
 
-fn mint_shares_to_owner<'info>(ctx: &Context<Deposit<'info>>, amount: u64) -> Result<()> {
+fn mint_shares<'info>(ctx: &Context<Deposit<'info>>, amount: u64) -> Result<()> {
     mint_to(
         CpiContext::new_with_signer(
             ctx.accounts.token_program.to_account_info(),
